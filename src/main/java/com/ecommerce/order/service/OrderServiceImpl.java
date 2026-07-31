@@ -1,139 +1,271 @@
-//package com.ecommerce.order.service;
-//
-//import com.ecommerce.auth.entity.User;
-//import com.ecommerce.auth.repository.UserRepository;
-//import com.ecommerce.cart.entity.Cart;
-//import com.ecommerce.cart.repository.CartRepository;
-//import com.ecommerce.common.enums.OrderStatus;
-//import com.ecommerce.common.enums.PaymentMethod;
-//import com.ecommerce.common.enums.PaymentStatus;
-//import com.ecommerce.common.exception.ResourceNotFoundException;
-//import com.ecommerce.order.dto.OrderRequest;
-//import com.ecommerce.order.dto.OrderResponse;
-//import com.ecommerce.order.dto.OrderStatusResponse;
-//import com.ecommerce.order.entity.Order;
-//import com.ecommerce.order.entity.OrderItem;
-//import com.ecommerce.order.event.OrderCreatedEvent;
-//import com.ecommerce.order.mapper.OrderMapper;
-//import com.ecommerce.order.repository.OrderRepository;
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.kafka.core.KafkaTemplate;
-//import org.springframework.stereotype.Service;
-//import org.springframework.transaction.annotation.Transactional;
-//
-//import java.math.BigDecimal;
-//import java.time.LocalDateTime;
-//import java.util.List;
-//import java.util.stream.Collectors;
-//
-//@Service
-//@RequiredArgsConstructor
-//public class OrderServiceImpl implements OrderService {
-//
-//    private final OrderRepository orderRepository;
-//    private final UserRepository userRepository;
-//    private final CartRepository cartRepository;
-//    private final KafkaTemplate<String, String> kafkaTemplate;
-//
-//    @Override
-//    @Transactional
-//    public OrderResponse createOrder(OrderRequest orderRequest, String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//
-//        Cart cart = cartRepository.findByUser(user)
-//                .orElseThrow(() -> new ResourceNotFoundException("Cart", "user", userEmail));
-//
-//        if (cart.getCartItems().isEmpty()) {
-//            throw new ResourceNotFoundException("Cart items", "cart", cart.getId());
-//        }
-//
-//        Order order = Order.builder()
-//                .user(user)
-//                .orderDate(LocalDateTime.now())
-//                .status(OrderStatus.PENDING)
-//                .paymentMethod(orderRequest.getPaymentMethod())
-//                .paymentStatus(PaymentStatus.PENDING)
-//                .shippingAddress(orderRequest.getShippingAddress())
-//                .totalAmount(calculateTotalAmount(cart))
-//                .build();
-//
-//        List<OrderItem> orderItems = cart.getCartItems().stream()
-//                .map(cartItem -> OrderItem.builder()
-//                        .order(order)
-//                        .product(cartItem.getProduct())
-//                        .quantity(cartItem.getQuantity())
-//                        .price(cartItem.getPrice())
-//                        .subtotal(cartItem.getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity())))
-//                        .build())
-//                .collect(Collectors.toList());
-//
-//        order.setOrderItems(orderItems);
-//        Order savedOrder = orderRepository.save(order);
-//
-//        OrderCreatedEvent event = OrderCreatedEvent.builder()
-//                .orderId(savedOrder.getId())
-//                .userId(user.getId())
-//                .totalAmount(savedOrder.getTotalAmount())
-//                .orderDate(savedOrder.getOrderDate())
-//                .build();
-//
-//        kafkaTemplate.send("order-created", event.toString());
-//
-//        return OrderMapper.toResponse(savedOrder);
-//    }
-//
-//    @Override
-//    public OrderResponse getOrderById(Long id) {
-//        Order order = orderRepository.findById(id)
-//                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
-//        return OrderMapper.toResponse(order);
-//    }
-//
-//    @Override
-//    public List<OrderResponse> getUserOrders(String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//        List<Order> orders = orderRepository.findByUser(user);
-//        return orders.stream()
-//                .map(OrderMapper::toResponse)
-//                .toList();
-//    }
-//
-//    @Override
-//    public List<OrderResponse> getOrdersByStatus(OrderStatus status) {
-//        List<Order> orders = orderRepository.findByStatus(status);
-//        return orders.stream()
-//                .map(OrderMapper::toResponse)
-//                .toList();
-//    }
-//
-//    @Override
-//    @Transactional
-//    public OrderStatusResponse updateOrderStatus(Long id, OrderStatus status) {
-//        Order order = orderRepository.findById(id)
-//                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
-//        order.setStatus(status);
-//        orderRepository.save(order);
-//
-//        return OrderStatusResponse.builder()
-//                .orderId(order.getId())
-//                .status(order.getStatus())
-//                .updatedAt(LocalDateTime.now())
-//                .build();
-//    }
-//
-//    @Override
-//    @Transactional
-//    public void deleteOrder(Long id) {
-//        Order order = orderRepository.findById(id)
-//                .orElseThrow(() -> new ResourceNotFoundException("Order", "id", id));
-//        orderRepository.delete(order);
-//    }
-//
-//    private BigDecimal calculateTotalAmount(Cart cart) {
-//        return cart.getCartItems().stream()
-//                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())))
-//                .reduce(BigDecimal.ZERO, BigDecimal::add);
-//    }
-//}
+package com.ecommerce.order.service;
+
+import com.ecommerce.auth.entity.User;
+import com.ecommerce.auth.repository.UserRepository;
+import com.ecommerce.cart.entity.CartItem;
+import com.ecommerce.cart.repository.CartRepository;
+import com.ecommerce.common.enums.OrderStatus;
+import com.ecommerce.common.enums.PaymentMethod;
+import com.ecommerce.common.enums.PaymentStatus;
+import com.ecommerce.common.exception.*;
+import com.ecommerce.order.dto.OrderResponse;
+import com.ecommerce.order.dto.UpdateOrderStatusRequest;
+import com.ecommerce.order.entity.Order;
+import com.ecommerce.order.entity.OrderItem;
+import com.ecommerce.order.mapper.OrderMapper;
+import com.ecommerce.order.repository.OrderRepository;
+import com.ecommerce.product.entity.Product;
+import com.ecommerce.product.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class OrderServiceImpl implements OrderService {
+
+    private final OrderRepository orderRepository;
+    private final CartRepository cartRepository;
+    private final ProductRepository productRepository;
+    private final UserRepository userRepository;
+    private final OrderMapper orderMapper;
+
+    @Override
+    public OrderResponse placeOrder() {
+
+        User user = getCurrentUser();
+
+        List<CartItem> cartItems = getCartItems(user);
+
+        validateCart(cartItems);
+
+        Order order = createOrder(user, cartItems);
+
+        cartRepository.deleteByUser(user);
+
+        return orderMapper.toResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse updateOrderStatus(Long orderId,
+                                           UpdateOrderStatusRequest request) {
+
+        Order order = getOrderByIds(orderId);
+
+        validateStatusTransition(
+                order.getStatus(),
+                request.getStatus());
+
+        order.setStatus(request.getStatus());
+
+        return orderMapper.toResponse(order);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getMyOrders() {
+
+        User user = getCurrentUser();
+
+        return orderRepository.findByUser(user)
+                .stream()
+                .map(orderMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(Long orderId) {
+
+        Order order = getOrderEntity(orderId);
+
+        return orderMapper.toResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse cancelOrder(Long orderId) {
+
+        Order order = getOrderEntity(orderId);
+
+        validateOrderCancellation(order);
+
+        restoreStock(order);
+
+        order.setStatus(OrderStatus.CANCELLED);
+
+        return orderMapper.toResponse(order);
+    }
+
+    private Order getOrderEntity(Long orderId) {
+
+        User user = getCurrentUser();
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Order not found"));
+
+        if (!order.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException("You are not authorized to access this order");
+        }
+
+        return order;
+    }
+
+
+    private String generateOrderNumber() {
+        return "ORD-" + System.currentTimeMillis();
+    }
+
+    private List<CartItem> getCartItems(User user) {
+
+        List<CartItem> cartItems = cartRepository.findByUser(user);
+
+        if (cartItems.isEmpty()) {
+            throw new IllegalStateException("Cart is empty");
+        }
+
+        return cartItems;
+    }
+    private void validateCart(List<CartItem> cartItems) {
+
+        for (CartItem cartItem : cartItems) {
+
+            Product product = cartItem.getProduct();
+
+            if (!product.getActive()) {
+                throw new ProductInactiveException(
+                        "Product is inactive : " + product.getName());
+            }
+
+            if (product.getStockQuantity() < cartItem.getQuantity()) {
+                throw new InsufficientStockException(
+                        "Insufficient stock for product : "
+                                + product.getName());
+            }
+        }
+    }
+
+    private Order getOrderByIds(Long orderId) {
+
+        return orderRepository.findById(orderId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Order not found"));
+    }
+
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        return userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+    }
+    private Order createOrder(User user,
+                              List<CartItem> cartItems) {
+
+        Order order = new Order();
+
+        order.setOrderNumber(generateOrderNumber());
+        order.setUser(user);
+        order.setStatus(OrderStatus.PENDING);
+
+        BigDecimal totalAmount = BigDecimal.ZERO;
+
+        List<OrderItem> orderItems = new ArrayList<>();
+
+        for (CartItem cartItem : cartItems) {
+
+            Product product = cartItem.getProduct();
+
+            OrderItem orderItem = new OrderItem();
+
+            orderItem.setOrder(order);
+            orderItem.setProduct(product);
+            orderItem.setQuantity(cartItem.getQuantity());
+            orderItem.setUnitPrice(cartItem.getUnitPrice());
+            orderItem.setTotalPrice(cartItem.getTotalPrice());
+
+            orderItems.add(orderItem);
+
+            totalAmount = totalAmount.add(cartItem.getTotalPrice());
+
+            product.setStockQuantity(
+                    product.getStockQuantity()
+                            - cartItem.getQuantity());
+        }
+
+        order.setOrderItems(orderItems);
+        order.setTotalAmount(totalAmount);
+
+        return orderRepository.save(order);
+    }
+
+    private void validateStatusTransition(OrderStatus currentStatus,
+                                          OrderStatus newStatus) {
+
+        switch (currentStatus) {
+
+            case PENDING -> {
+                if (newStatus != OrderStatus.CONFIRMED &&
+                        newStatus != OrderStatus.CANCELLED) {
+                    throw new InvalidOrderStatusException(
+                            "Invalid status transition");
+                }
+            }
+
+            case CONFIRMED -> {
+                if (newStatus != OrderStatus.SHIPPED &&
+                        newStatus != OrderStatus.CANCELLED) {
+                    throw new InvalidOrderStatusException (
+                            "Invalid status transition");
+                }
+            }
+
+            case SHIPPED -> {
+                if (newStatus != OrderStatus.DELIVERED) {
+                    throw new InvalidOrderStatusException (
+                            "Invalid status transition");
+                }
+            }
+
+            case DELIVERED, CANCELLED ->
+                    throw new InvalidOrderStatusException(
+                            "Order status cannot be changed");
+        }
+    }
+    private void validateOrderCancellation(Order order) {
+
+        if (order.getStatus() == OrderStatus.SHIPPED ||
+                order.getStatus() == OrderStatus.DELIVERED ||
+                order.getStatus() == OrderStatus.CANCELLED) {
+
+            throw new OrderCancellationException(
+                    "Order cannot be cancelled because it is " + order.getStatus());
+        }
+    }
+
+    private void restoreStock(Order order) {
+
+        for (OrderItem orderItem : order.getOrderItems()) {
+
+            Product product = orderItem.getProduct();
+
+            product.setStockQuantity(
+                    product.getStockQuantity() + orderItem.getQuantity()
+            );
+        }
+    }
+}

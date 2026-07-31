@@ -1,128 +1,189 @@
-//package com.ecommerce.cart.service;
-//
-//import com.ecommerce.auth.entity.User;
-//import com.ecommerce.auth.repository.UserRepository;
-//import com.ecommerce.cart.dto.CartRequest;
-//import com.ecommerce.cart.dto.CartResponse;
-//import com.ecommerce.cart.entity.Cart;
-//import com.ecommerce.cart.entity.CartItem;
-//import com.ecommerce.cart.mapper.CartMapper;
-//import com.ecommerce.cart.repository.CartRepository;
-//import com.ecommerce.cart.repository.CartItemRepository;
-//import com.ecommerce.common.exception.ResourceNotFoundException;
-//import com.ecommerce.product.entity.Product;
-//import com.ecommerce.product.repository.ProductRepository;
-//import lombok.RequiredArgsConstructor;
-//import org.springframework.stereotype.Service;
-//import org.springframework.transaction.annotation.Transactional;
-//
-//import java.util.Optional;
-//
-//@Service
-//@RequiredArgsConstructor
-//public class CartServiceImpl implements CartService {
-//
-//    private final CartRepository cartRepository;
-//    private final CartItemRepository cartItemRepository;
-//    private final UserRepository userRepository;
-//    private final ProductRepository productRepository;
-//
-//    @Override
-//    @Transactional
-//    public CartResponse addToCart(CartRequest cartRequest, String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//
-//        Product product = productRepository.findById(cartRequest.getProductId())
-//                .orElseThrow(() -> new ResourceNotFoundException("Product", "id", cartRequest.getProductId()));
-//
-//        Cart cart = cartRepository.findByUser(user)
-//                .orElseGet(() -> {
-//                    Cart newCart = Cart.builder().user(user).build();
-//                    return cartRepository.save(newCart);
-//                });
-//
-//        Optional<CartItem> existingItem = cartItemRepository.findByCartAndProduct(cart, product);
-//
-//////        if (existingItem != null) {
-//////            existingItem.setQuantity(existingItem.getQuantity() + cartRequest.getQuantity());
-//////            cartItemRepository.save(existingItem);
-////        } else {
-////            CartItem cartItem = CartItem.builder()
-////                    .cart(cart)
-////                    .product(product)
-////                    .quantity(cartRequest.getQuantity())
-////                    .price(product.getPrice())
-////                    .build();
-////            cartItemRepository.save(cartItem);
-////        }
-//
-//        return CartMapper.toResponse(cartRepository.findByUser(user).orElse(cart));
-//    }
-//
-//    @Override
-//    public CartResponse getCart(String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//
-//        Cart cart = cartRepository.findByUser(user)
-//                .orElseThrow(() -> new ResourceNotFoundException("Cart", "user", userEmail));
-//
-//        return CartMapper.toResponse(cart);
-//    }
-//
-//    @Override
-//    @Transactional
-//    public CartResponse updateCartItem(Long cartItemId, Integer quantity, String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//
-//        Cart cart = cartRepository.findByUser(user)
-//                .orElseThrow(() -> new ResourceNotFoundException("Cart", "user", userEmail));
-//
-//        CartItem cartItem = cartItemRepository.findById(cartItemId)
-//                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "id", cartItemId));
-//
-//        if (!cartItem.getCart().getId().equals(cart.getId())) {
-//            throw new ResourceNotFoundException("CartItem", "id", cartItemId);
-//        }
-//
-//        cartItem.setQuantity(quantity);
-//        cartItemRepository.save(cartItem);
-//
-//        return CartMapper.toResponse(cart);
-//    }
-//
-//    @Override
-//    @Transactional
-//    public CartResponse removeCartItem(Long cartItemId, String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//
-//        Cart cart = cartRepository.findByUser(user)
-//                .orElseThrow(() -> new ResourceNotFoundException("Cart", "user", userEmail));
-//
-//        CartItem cartItem = cartItemRepository.findById(cartItemId)
-//                .orElseThrow(() -> new ResourceNotFoundException("CartItem", "id", cartItemId));
-//
-//        if (!cartItem.getCart().getId().equals(cart.getId())) {
-//            throw new ResourceNotFoundException("CartItem", "id", cartItemId);
-//        }
-//
-//        cartItemRepository.delete(cartItem);
-//
-//        return CartMapper.toResponse(cart);
-//    }
-//
-//    @Override
-//    @Transactional
-//    public void clearCart(String userEmail) {
-//        User user = userRepository.findByEmail(userEmail)
-//                .orElseThrow(() -> new ResourceNotFoundException("User", "email", userEmail));
-//
-//        Cart cart = cartRepository.findByUser(user)
-//                .orElseThrow(() -> new ResourceNotFoundException("Cart", "user", userEmail));
-//
-//        cartItemRepository.deleteByCart(cart);
-//    }
-//}
+package com.ecommerce.cart.service;
+
+import com.ecommerce.auth.entity.User;
+import com.ecommerce.auth.repository.UserRepository;
+import com.ecommerce.cart.dto.AddToCartRequest;
+import com.ecommerce.cart.dto.CartItemResponse;
+import com.ecommerce.cart.dto.CartResponse;
+import com.ecommerce.cart.dto.UpdateCartRequest;
+import com.ecommerce.cart.entity.CartItem;
+import com.ecommerce.cart.mapper.CartMapper;
+import com.ecommerce.cart.repository.CartRepository;
+import com.ecommerce.common.exception.InsufficientStockException;
+import com.ecommerce.common.exception.ProductInactiveException;
+import com.ecommerce.common.exception.ResourceNotFoundException;
+import com.ecommerce.common.exception.UnauthorizedCartAccessException;
+import com.ecommerce.product.entity.Product;
+import com.ecommerce.product.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional
+public class CartServiceImpl implements CartService {
+
+    private final CartRepository cartRepository;
+    private final ProductRepository productRepository;
+    private final UserRepository userRepository;
+    private final CartMapper cartMapper;
+
+
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        String email = authentication.getName();
+
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
+
+    private Product getProduct(Long productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Product not found with id: " + productId));
+    }
+
+    @Override
+    public CartResponse addToCart(AddToCartRequest request) {
+
+        User user = getCurrentUser();
+
+        Product product = getProduct(request.getProductId());
+
+        if (!product.getActive()) {
+            throw new ProductInactiveException("Product is not active and cannot be added to cart");
+        }
+
+        if (product.getStockQuantity() < request.getQuantity()) {
+            throw new InsufficientStockException(
+                    "Requested quantity exceeds available stock. Available: " + product.getStockQuantity());
+        }
+
+        Optional<CartItem> existingCartItem =
+                cartRepository.findByUserAndProduct(user, product);
+
+        CartItem cartItem;
+
+        if (existingCartItem.isPresent()) {
+
+            cartItem = existingCartItem.get();
+
+            int newQuantity = cartItem.getQuantity() + request.getQuantity();
+
+            if (newQuantity > product.getStockQuantity()) {
+                throw new InsufficientStockException(
+                        "Requested quantity exceeds available stock. Available: " + product.getStockQuantity());
+            }
+
+            cartItem.setQuantity(newQuantity);
+
+        } else {
+
+            cartItem = new CartItem();
+
+            cartItem.setUser(user);
+            cartItem.setProduct(product);
+            cartItem.setQuantity(request.getQuantity());
+            cartItem.setUnitPrice(product.getPrice());
+        }
+
+        cartItem.setTotalPrice(
+                cartItem.getUnitPrice()
+                        .multiply(BigDecimal.valueOf(cartItem.getQuantity()))
+        );
+
+        cartRepository.save(cartItem);
+
+        return getCart();
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public CartResponse getCart() {
+
+        User user = getCurrentUser();
+
+        List<CartItem> cartItems = cartRepository.findByUser(user);
+
+        List<CartItemResponse> itemResponses = cartItems.stream()
+                .map(cartMapper::toResponse)
+                .toList();
+
+        BigDecimal grandTotal = cartItems.stream()
+                .map(CartItem::getTotalPrice)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        CartResponse response = new CartResponse();
+        response.setItems(itemResponses);
+        response.setGrandTotal(grandTotal);
+
+        return response;
+    }
+
+    @Override
+    public CartResponse updateCartItem(Long cartItemId, UpdateCartRequest request) {
+
+        User user = getCurrentUser();
+
+        CartItem cartItem = getCartItem(cartItemId);
+
+        Product product = cartItem.getProduct();
+
+        if (request.getQuantity() > product.getStockQuantity()) {
+            throw new InsufficientStockException(
+                    "Requested quantity exceeds available stock. Available: " + product.getStockQuantity());
+        }
+
+        cartItem.setQuantity(request.getQuantity());
+
+        cartItem.setTotalPrice(
+                cartItem.getUnitPrice()
+                        .multiply(BigDecimal.valueOf(request.getQuantity()))
+        );
+
+        cartRepository.save(cartItem);
+
+        return getCart();
+    }
+
+    @Override
+    public void removeCartItem(Long cartItemId) {
+
+        User user = getCurrentUser();
+
+        CartItem cartItem = getCartItem(cartItemId);
+
+        cartRepository.delete(cartItem);
+    }
+
+    @Override
+    public void clearCart() {
+
+        User user = getCurrentUser();
+
+        cartRepository.deleteByUser(user);
+    }
+
+    private CartItem getCartItem(Long cartItemId) {
+
+        User user = getCurrentUser();
+
+        CartItem cartItem = cartRepository.findById(cartItemId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Cart item not found"));
+
+        if (!cartItem.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedCartAccessException("You can only access your own cart items");
+        }
+
+        return cartItem;
+    }
+}

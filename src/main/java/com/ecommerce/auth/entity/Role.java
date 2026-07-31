@@ -1,5 +1,6 @@
 package com.ecommerce.auth.entity;
 
+import com.ecommerce.common.entity.AuditableEntity;
 import com.ecommerce.common.enums.RoleName;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -15,7 +16,7 @@ import lombok.Setter;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Role {
+public class Role extends AuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

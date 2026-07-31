@@ -1,25 +1,21 @@
-//package com.ecommerce.category.mapper;
-//
-//import com.ecommerce.category.dto.CategoryRequest;
-//import com.ecommerce.category.dto.CategoryResponse;
-//import com.ecommerce.category.entity.Category;
-//
-//public class CategoryMapper {
-//
-//    public static Category toEntity(CategoryRequest categoryRequest) {
-//        return Category.builder()
-//                .name(categoryRequest.getName())
-//                .description(categoryRequest.getDescription())
-//                .build();
-//    }
-//
-//    public static CategoryResponse toResponse(Category category) {
-//        return CategoryResponse.builder()
-//                .id(category.getId())
-//                .name(category.getName())
-//                .description(category.getDescription())
-//                .createdAt(category.getCreatedAt())
-//                .updatedAt(category.getUpdatedAt())
-//                .build();
-//    }
-//}
+package com.ecommerce.category.mapper;
+
+import com.ecommerce.category.dto.request.CreateCategoryRequest;
+import com.ecommerce.category.dto.request.UpdateCategoryRequest;
+import com.ecommerce.category.dto.response.CategoryResponse;
+import com.ecommerce.category.entity.Category;
+import org.mapstruct.BeanMapping;
+import org.mapstruct.Mapper;
+import org.mapstruct.MappingTarget;
+import org.mapstruct.NullValuePropertyMappingStrategy;
+import org.mapstruct.ReportingPolicy;
+
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.IGNORE)
+public interface CategoryMapper {
+    Category toEntity(CreateCategoryRequest categoryRequest);
+    CategoryResponse toResponse(Category category);
+
+    @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+    void updateCategoryFromRequest(UpdateCategoryRequest request,
+                                   @MappingTarget Category category);
+}

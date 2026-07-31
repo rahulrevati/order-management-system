@@ -5,6 +5,7 @@ import com.ecommerce.auth.dto.Responses.LoginResponse;
 import com.ecommerce.auth.dto.Requests.RegisterRequest;
 import com.ecommerce.auth.dto.Responses.RegisterResponse;
 import com.ecommerce.auth.service.AuthService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@SecurityRequirement(name = "Bearer Authentication")
 @RequiredArgsConstructor
 @Slf4j
 public class AuthController {

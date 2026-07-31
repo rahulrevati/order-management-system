@@ -1,5 +1,6 @@
 package com.ecommerce.common.exception;
 
+import com.ecommerce.common.response.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,9 +33,18 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(DuplicateResourceException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateResourceException(
-            DuplicateResourceException ex, WebRequest request) {
+    @ExceptionHandler(OrderCancellationException.class)
+    public ResponseEntity<ApiResponse<Object>> handleOrderCancellationException(
+            OrderCancellationException ex) {
+
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
+    @ExceptionHandler(ResourceAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponse> handleResourceAlreadyExistsException(
+            ResourceAlreadyExistsException ex, WebRequest request) {
+
         ErrorResponse errorResponse = ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(HttpStatus.CONFLICT.value())
@@ -42,9 +52,21 @@ public class GlobalExceptionHandler {
                 .message(ex.getMessage())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
-        log.error("Duplicate resource: {}", ex.getMessage());
+
+        log.error("Resource already exists: {}", ex.getMessage());
+
         return new ResponseEntity<>(errorResponse, HttpStatus.CONFLICT);
     }
+
+
+    @ExceptionHandler(InvalidOrderStatusException.class)
+    public ResponseEntity<ApiResponse<Object>> handleInvalidOrderStatusException(
+            InvalidOrderStatusException ex) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.failure(ex.getMessage()));
+    }
+
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ErrorResponse> handleUnauthorizedException(
