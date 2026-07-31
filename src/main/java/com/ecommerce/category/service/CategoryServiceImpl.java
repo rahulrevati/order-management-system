@@ -6,7 +6,6 @@ import com.ecommerce.category.dto.response.CategoryResponse;
 import com.ecommerce.category.entity.Category;
 import com.ecommerce.category.mapper.CategoryMapper;
 import com.ecommerce.category.repository.CategoryRepository;
-import com.ecommerce.category.service.CategoryService;
 import com.ecommerce.common.exception.ResourceAlreadyExistsException;
 import com.ecommerce.common.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;

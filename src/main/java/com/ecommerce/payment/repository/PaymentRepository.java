@@ -1,12 +1,9 @@
 package com.ecommerce.payment.repository;
 
-import com.ecommerce.common.enums.PaymentMethod;
-import com.ecommerce.common.enums.PaymentStatus;
 import com.ecommerce.order.entity.Order;
 import com.ecommerce.payment.entity.Payment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-
 
 import java.util.Optional;
 
