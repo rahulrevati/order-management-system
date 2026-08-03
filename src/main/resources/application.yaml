@@ -9,13 +9,52 @@ spring:
       ddl-auto: update
     show-sql: true
 
+  kafka:
+    bootstrap-servers: localhost:9092
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    consumer:
+      group-id: ecommerce-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: "com.ecommerce.*"
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: rahulrevati232@gmail.com
+    password: pwxo kmvw vejo thix
+
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 server:
   port: 8080
 
 jwt:
-  secret: your-very-long-secret-key-with-at-least-32-characters
+  secret: 4d8c1a9f6e3b7c2d5f8a1e9b6c3d7f0a2b5c8e1d4f7a9b3c6d2e5f8a1b4c7d9
   expiration: 86400000
 
 logging:
   level:
     org.springframework.security: TRACE
+    org.springframework.kafka: DEBUG
+    org.apache.kafka: INFO
+    org.springframework.mail: DEBUG
+    org.eclipse.angus.mail: DEBUG

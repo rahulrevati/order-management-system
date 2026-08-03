@@ -9,45 +9,58 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.0.7</version>
-		<relativePath/>
+		<version>3.5.5</version>
 	</parent>
 
 	<groupId>com.ecommerce</groupId>
 	<artifactId>order-management-system</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>order-management-system</name>
-	<description>Spring Boot E-Commerce Order Management System</description>
+	<version>1.0.0</version>
+
+	<name>Order Management System</name>
+
+	<description>
+		Production-ready E-Commerce Order Management System
+	</description>
 
 	<properties>
+
 		<java.version>21</java.version>
-		<mapstruct.version>1.6.3</mapstruct.version>
-		<lombok.version>1.18.38</lombok.version>
+
 		<jjwt.version>0.12.7</jjwt.version>
-		<springdoc.version>3.0.0</springdoc.version>
+
+		<mapstruct.version>1.6.3</mapstruct.version>
+
+		<lombok.version>1.18.38</lombok.version>
+
+		<!-- Spring Boot 3 Compatible -->
+		<springdoc.version>2.8.9</springdoc.version>
+
 	</properties>
 
 	<dependencies>
 
-		<!-- Spring Boot -->
+		<!-- Web -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Security -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
 		</dependency>
 
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-
+		<!-- Validation -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
+		<!-- JPA -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
 		</dependency>
 
 		<!-- Redis -->
@@ -56,16 +69,16 @@
 			<artifactId>spring-boot-starter-data-redis</artifactId>
 		</dependency>
 
-		<!-- Mail -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-mail</artifactId>
-		</dependency>
-
 		<!-- Kafka -->
 		<dependency>
 			<groupId>org.springframework.kafka</groupId>
 			<artifactId>spring-kafka</artifactId>
+		</dependency>
+
+		<!-- Mail -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
 		</dependency>
 
 		<!-- JWT -->
@@ -83,13 +96,18 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-redis</artifactId>
+		</dependency>
+
+		<dependency>
 			<groupId>io.jsonwebtoken</groupId>
 			<artifactId>jjwt-jackson</artifactId>
 			<version>${jjwt.version}</version>
 			<scope>runtime</scope>
 		</dependency>
 
-		<!-- Swagger/OpenAPI -->
+		<!-- Swagger -->
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
@@ -126,7 +144,7 @@
 			<optional>true</optional>
 		</dependency>
 
-		<!-- Testing -->
+		<!-- Tests -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -142,42 +160,47 @@
 	</dependencies>
 
 	<build>
+
 		<plugins>
 
 			<plugin>
+
 				<groupId>org.springframework.boot</groupId>
+
 				<artifactId>spring-boot-maven-plugin</artifactId>
-				<configuration>
-					<excludes>
-						<exclude>
-							<groupId>org.projectlombok</groupId>
-							<artifactId>lombok</artifactId>
-						</exclude>
-					</excludes>
-				</configuration>
+
 			</plugin>
 
 			<plugin>
+
 				<groupId>org.apache.maven.plugins</groupId>
+
 				<artifactId>maven-compiler-plugin</artifactId>
 
 				<configuration>
 
-					<source>${java.version}</source>
-					<target>${java.version}</target>
+					<release>${java.version}</release>
 
 					<annotationProcessorPaths>
 
 						<path>
+
 							<groupId>org.projectlombok</groupId>
+
 							<artifactId>lombok</artifactId>
+
 							<version>${lombok.version}</version>
+
 						</path>
 
 						<path>
+
 							<groupId>org.mapstruct</groupId>
+
 							<artifactId>mapstruct-processor</artifactId>
+
 							<version>${mapstruct.version}</version>
+
 						</path>
 
 					</annotationProcessorPaths>
@@ -187,6 +210,7 @@
 			</plugin>
 
 		</plugins>
+
 	</build>
 
 </project>

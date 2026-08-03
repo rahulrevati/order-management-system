@@ -13,6 +13,9 @@ import com.ecommerce.product.mapper.ProductMapper;
 import com.ecommerce.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +31,7 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final ProductMapper productMapper;
 
+    @CacheEvict(value = "products", key = "'all'")
     @Override
     public ProductResponse createProduct(CreateProductRequest request) {
 
@@ -54,6 +58,10 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(savedProduct);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "products", key = "#id"),
+            @CacheEvict(value = "products", key = "'all'")
+    })
     @Override
     public ProductResponse updateProduct(Long id, UpdateProductRequest request) {
 
@@ -85,6 +93,10 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(updatedProduct);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "products", key = "#id"),
+            @CacheEvict(value = "products", key = "'all'")
+    })
     @Override
     public void deleteProduct(Long id) {
 
@@ -96,7 +108,7 @@ public class ProductServiceImpl implements ProductService {
 
         log.info("Product with ID {} marked as inactive", id);
     }
-
+    @Cacheable(value = "products", key = "#id")
     @Override
     @Transactional(readOnly = true)
     public ProductResponse getProductById(Long id) {
@@ -105,7 +117,7 @@ public class ProductServiceImpl implements ProductService {
 
         return productMapper.toResponse(getProductEntity(id));
     }
-
+    @Cacheable(value = "products", key = "'all'")
     @Override
     @Transactional(readOnly = true)
     public List<ProductResponse> getAllProducts() {

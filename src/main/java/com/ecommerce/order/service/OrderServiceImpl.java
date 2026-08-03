@@ -6,6 +6,8 @@ import com.ecommerce.cart.entity.CartItem;
 import com.ecommerce.cart.repository.CartRepository;
 import com.ecommerce.common.enums.OrderStatus;
 import com.ecommerce.common.exception.*;
+import com.ecommerce.common.kafka.event.OrderPlacedEvent;
+import com.ecommerce.common.kafka.producer.OrderEventProducer;
 import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.dto.UpdateOrderStatusRequest;
 import com.ecommerce.order.entity.Order;
@@ -35,6 +37,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final OrderMapper orderMapper;
+    private final OrderEventProducer orderEventProducer;
 
     @Override
     public OrderResponse placeOrder() {
@@ -203,6 +206,19 @@ public class OrderServiceImpl implements OrderService {
 
         order.setOrderItems(orderItems);
         order.setTotalAmount(totalAmount);
+
+        Order savedOrder = orderRepository.save(order);
+
+        // Publish Kafka Event
+        OrderPlacedEvent event = OrderPlacedEvent.builder()
+                .orderId(savedOrder.getId())
+                .orderNumber(savedOrder.getOrderNumber())
+                .userId(user.getId())
+                .email(user.getEmail())
+                .totalAmount(savedOrder.getTotalAmount())
+                .build();
+
+        orderEventProducer.publishOrderCreated(event);
 
         return orderRepository.save(order);
     }
