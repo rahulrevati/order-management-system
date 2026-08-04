@@ -58,3 +58,29 @@ logging:
     org.apache.kafka: INFO
     org.springframework.mail: DEBUG
     org.eclipse.angus.mail: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+  endpoint:
+    health:
+      show-details: always
+
+  info:
+    env:
+      enabled: true
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+info:
+  app:
+    name: Order Management System
+    description: Enterprise E-Commerce Backend
+    version: 1.0.0
+    developer: Rahul Revati

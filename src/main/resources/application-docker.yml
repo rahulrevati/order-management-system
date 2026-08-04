@@ -1,0 +1,52 @@
+spring:
+
+  datasource:
+    url: jdbc:mysql://host.docker.internal:3306/order_management
+    username: root
+    password: root
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+  kafka:
+    bootstrap-servers: kafka:9092
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  port: 8080
+
+jwt:
+  secret: 4d8c1a9f6e3b7c2d5f8a1e9b6c3d7f0a2b5c8e1d4f7a9b3c6d2e5f8a1b4c7d9
+  expiration: 86400000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+  endpoint:
+    health:
+      show-details: always
+
+  info:
+    env:
+      enabled: true
+
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+info:
+  app:
+    name: Order Management System
+    description: Enterprise E-Commerce Backend
+    version: 1.0.0
+    developer: Rahul Revati
