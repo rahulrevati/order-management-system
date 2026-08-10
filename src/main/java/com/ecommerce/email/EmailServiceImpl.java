@@ -1,7 +1,7 @@
-package com.ecommerce.notification.service;
+package com.ecommerce.email;
 
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
-import com.ecommerce.notification.service.EmailService;
+import com.ecommerce.monitoring.BusinessMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
+    private final BusinessMetrics businessMetrics;
 
     @Async
     @Override
@@ -36,6 +37,7 @@ public class EmailServiceImpl implements EmailService {
         );
 
         mailSender.send(message);
+        businessMetrics.incrementEmailsSent();
 
         log.info("Email sent successfully to {}", event.getEmail());
     }
