@@ -8,6 +8,7 @@ import com.ecommerce.common.enums.OrderStatus;
 import com.ecommerce.common.exception.*;
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
 import com.ecommerce.common.kafka.producer.OrderEventProducer;
+import com.ecommerce.monitoring.BusinessMetrics;
 import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.dto.UpdateOrderStatusRequest;
 import com.ecommerce.order.entity.Order;
@@ -38,6 +39,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final OrderMapper orderMapper;
     private final OrderEventProducer orderEventProducer;
+    private final BusinessMetrics businessMetrics;
 
     @Override
     public OrderResponse placeOrder() {
@@ -208,6 +210,7 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmount);
 
         Order savedOrder = orderRepository.save(order);
+        businessMetrics.incrementOrdersCreated();
 
         // Publish Kafka Event
         OrderPlacedEvent event = OrderPlacedEvent.builder()
@@ -220,7 +223,8 @@ public class OrderServiceImpl implements OrderService {
 
         orderEventProducer.publishOrderCreated(event);
 
-        return orderRepository.save(order);
+        return savedOrder;
+
     }
 
     private void validateStatusTransition(OrderStatus currentStatus,

@@ -1,4 +1,4 @@
-package com.ecommerce.notification.service;
+package com.ecommerce.email;
 
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
 

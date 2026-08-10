@@ -2,8 +2,7 @@ package com.ecommerce.common.kafka.consumer;
 
 import com.ecommerce.common.kafka.config.KafkaTopics;
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
-import com.ecommerce.notification.service.EmailService;
-import lombok.NoArgsConstructor;
+import com.ecommerce.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;

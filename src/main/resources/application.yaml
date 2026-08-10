@@ -31,7 +31,7 @@ spring:
     host: smtp.gmail.com
     port: 587
     username: rahulrevati232@gmail.com
-    password: pwxo kmvw vejo thix
+    password:
 
     properties:
       mail:

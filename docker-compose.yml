@@ -47,6 +47,37 @@ services:
     networks:
       - ecommerce-network
 
+  prometheus:
+    image: prom/prometheus:latest
+
+    container_name: prometheus
+
+    restart: always
+
+    ports:
+      - "9090:9090"
+
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+    networks:
+      - ecommerce-network
+
+  grafana:
+    image: grafana/grafana:latest
+
+    container_name: grafana
+
+    restart: always
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+    networks:
+      - ecommerce-network
 
   app:
     build: .
@@ -71,6 +102,8 @@ services:
 volumes:
   redis-data:
   kafka-data:
+  grafana-data:
 
 networks:
   ecommerce-network:
+
