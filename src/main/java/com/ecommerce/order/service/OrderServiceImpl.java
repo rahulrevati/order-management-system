@@ -5,6 +5,7 @@ import com.ecommerce.auth.repository.UserRepository;
 import com.ecommerce.cart.entity.CartItem;
 import com.ecommerce.cart.repository.CartRepository;
 import com.ecommerce.common.enums.OrderStatus;
+import com.ecommerce.common.enums.RoleName;
 import com.ecommerce.common.exception.*;
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
 import com.ecommerce.common.kafka.producer.OrderEventProducer;
@@ -59,10 +60,24 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse updateOrderStatus(Long orderId,
-                                           UpdateOrderStatusRequest request) {
+    public OrderResponse updateOrderStatus(
+            Long orderId,
+            UpdateOrderStatusRequest request) {
 
         Order order = getOrderByIds(orderId);
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        boolean isAdmin = authentication.getAuthorities()
+                .stream()
+                .anyMatch(authority ->
+                        authority.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!isAdmin) {
+            throw new AccessDeniedException(
+                    "Only administrators can update order status");
+        }
 
         validateStatusTransition(
                 order.getStatus(),
@@ -72,7 +87,6 @@ public class OrderServiceImpl implements OrderService {
 
         return orderMapper.toResponse(order);
     }
-
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponse> getMyOrders() {
@@ -117,8 +131,12 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Order not found"));
 
-        if (!order.getUser().getId().equals(user.getId())) {
-            throw new AccessDeniedException("You are not authorized to access this order");
+        boolean isAdmin = user.getRole() != null
+                && user.getRole().getRoleName() == RoleName.ADMIN;
+
+        if (!isAdmin && !order.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException(
+                    "You are not authorized to access this order");
         }
 
         return order;

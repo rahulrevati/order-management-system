@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
 @Component
 @RequiredArgsConstructor
@@ -20,6 +21,15 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+
+    @Value("${app.bootstrap-admin.enabled:false}")
+    private boolean bootstrapAdminEnabled;
+
+    @Value("${app.bootstrap-admin.email:admin@example.com}")
+    private String adminEmail;
+
+    @Value("${app.bootstrap-admin.password:}")
+    private String adminPassword;
 
     @Override
     public void run(String... args) {
@@ -42,7 +52,14 @@ public class DataInitializer implements CommandLineRunner {
                                     .roleName(RoleName.CUSTOMER)
                                     .build());
                 });
-        String adminEmail = "admin@example.com";
+        if (!bootstrapAdminEnabled) {
+            log.info("Bootstrap admin creation is disabled");
+            return;
+        }
+
+        if (adminPassword == null || adminPassword.isBlank()) {
+            throw new IllegalStateException("Bootstrap admin is enabled but APP_BOOTSTRAP_ADMIN_PASSWORD is not set");
+        }
 
         if (!userRepository.existsByEmail(adminEmail)) {
 
@@ -52,7 +69,7 @@ public class DataInitializer implements CommandLineRunner {
                     .firstName("System")
                     .lastName("Administrator")
                     .email(adminEmail)
-                    .password(passwordEncoder.encode("Admin@123"))
+                    .password(passwordEncoder.encode(adminPassword))
                     .phoneNumber("9999999999")
                     .enabled(true)
                     .role(adminRole)

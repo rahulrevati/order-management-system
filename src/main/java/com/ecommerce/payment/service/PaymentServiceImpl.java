@@ -3,6 +3,10 @@ package com.ecommerce.payment.service;
 import com.ecommerce.common.enums.OrderStatus;
 import com.ecommerce.common.enums.PaymentStatus;
 import com.ecommerce.common.exception.ResourceNotFoundException;
+import com.ecommerce.common.enums.RoleName;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.ecommerce.order.entity.Order;
 import com.ecommerce.order.repository.OrderRepository;
 
@@ -16,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import com.ecommerce.auth.entity.User;
+import com.ecommerce.auth.repository.UserRepository;
 
 
 @Service
@@ -26,6 +32,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final PaymentMapper paymentMapper;
+    private final UserRepository userRepository;
 
     @Override
     public PaymentResponse makePayment(CreatePaymentRequest request) {
@@ -58,6 +65,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Payment not found"));
 
+        authorizeOrderAccess(payment.getOrder());
+
         return paymentMapper.toResponse(payment);
     }
 
@@ -85,6 +94,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
     private void validatePayment(Order order) {
 
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new IllegalStateException(
+                    "Payment cannot be processed for a cancelled order");
+        }
+
         if (paymentRepository.findByOrder(order).isPresent()) {
             throw new IllegalStateException(
                     "Payment already exists for this order");
@@ -93,8 +107,25 @@ public class PaymentServiceImpl implements PaymentService {
 
     private Order getOrder(Long orderId) {
 
-        return orderRepository.findById(orderId)
+        Order order = orderRepository.findById(orderId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Order not found"));
+
+        authorizeOrderAccess(order);
+        return order;
+    }
+
+    private void authorizeOrderAccess(Order order) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        User user = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean isAdmin = user.getRole() != null
+                && user.getRole().getRoleName() == RoleName.ADMIN;
+
+        if (!isAdmin && !order.getUser().getId().equals(user.getId())) {
+            throw new AccessDeniedException("You are not authorized to access this order");
+        }
     }
 }
