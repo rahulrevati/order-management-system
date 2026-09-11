@@ -3,6 +3,7 @@ package com.ecommerce.product.controller;
 import com.ecommerce.product.dto.request.CreateProductRequest;
 import com.ecommerce.product.dto.request.UpdateProductRequest;
 import com.ecommerce.product.dto.response.ProductResponse;
+import com.ecommerce.product.dto.response.BulkProductImportResponse;
 import com.ecommerce.product.service.ProductService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -34,6 +35,18 @@ public class ProductController {
             @PathVariable Long id) {
 
         return ResponseEntity.ok(productService.getProductById(id));
+    }
+
+    @PostMapping(value = "/admin/bulk-import", consumes = "multipart/form-data")
+    public ResponseEntity<BulkProductImportResponse> importProducts(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+
+        return ResponseEntity.ok(productService.importProductsFromCsv(file));
+    }
+
+    @GetMapping("/admin/all")
+    public ResponseEntity<List<ProductResponse>> getAllProductsForAdmin() {
+        return ResponseEntity.ok(productService.getAllProductsForAdmin());
     }
 
     @GetMapping

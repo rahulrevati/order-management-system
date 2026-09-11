@@ -3,6 +3,7 @@ package com.ecommerce.product.service;
 import com.ecommerce.product.dto.request.CreateProductRequest;
 import com.ecommerce.product.dto.request.UpdateProductRequest;
 import com.ecommerce.product.dto.response.ProductResponse;
+import com.ecommerce.product.dto.response.BulkProductImportResponse;
 
 import java.util.List;
 
@@ -17,6 +18,10 @@ public interface ProductService {
     ProductResponse getProductById(Long id);
 
     List<ProductResponse> getAllProducts();
+
+    List<ProductResponse> getAllProductsForAdmin();
+
+    BulkProductImportResponse importProductsFromCsv(org.springframework.web.multipart.MultipartFile file);
 
     List<ProductResponse> getProductsByCategory(Long categoryId);
 
