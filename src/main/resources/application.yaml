@@ -9,37 +9,37 @@ spring:
       ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: false
 
-  spring:
-    kafka:
-      bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
+      sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
+      ssl.truststore.type: PEM
+      ssl.truststore.location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:ecommerce-group}
+      auto-offset-reset: earliest
+      max-poll-records: 10
+
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
 
       properties:
-        security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
-        sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
-        sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
-        ssl.truststore.type: PEM
-        ssl.truststore.location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:}
+        spring:
+          json:
+            trusted:
+              packages: "com.ecommerce.*"
 
-      producer:
-        key-serializer: org.apache.kafka.common.serialization.StringSerializer
-        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-
-      consumer:
-        group-id: ${KAFKA_CONSUMER_GROUP:ecommerce-group}
-        auto-offset-reset: earliest
-
-        key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-        value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-
-        properties:
-          spring:
-            json:
-              trusted:
-                packages: "com.ecommerce.*"
-
-          fetch.max.bytes: 1048576
-          max.partition.fetch.bytes: 262144
-          max.poll.records: 10
+        fetch.max.bytes: 1048576
+        max.partition.fetch.bytes: 262144
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
