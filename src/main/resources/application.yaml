@@ -16,6 +16,8 @@ spring:
       security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
       sasl.mechanism: ${KAFKA_SASL_MECHANISM:PLAIN}
       sasl.jaas.config: ${KAFKA_SASL_JAAS_CONFIG:}
+      ssl.truststore.type: PEM
+      ssl.truststore.location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:}
 
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -26,7 +28,6 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-
       properties:
         spring:
           json:
