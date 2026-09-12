@@ -39,6 +39,7 @@ public class SecurityConfig {
         log.info("Configuring security filter chain");
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> {})
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 )
