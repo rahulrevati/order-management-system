@@ -3,8 +3,10 @@ package com.ecommerce.monitoring;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
+@Slf4j
 public class BusinessMetrics {
 
     private final Counter ordersCreatedCounter;
@@ -27,17 +29,14 @@ public class BusinessMetrics {
     }
 
     public void incrementOrdersCreated() {
-        System.out.println("Order metric incremented");
         ordersCreatedCounter.increment();
     }
 
     public void incrementEmailsSent() {
-        System.out.println("Email metric incremented");
         emailsSentCounter.increment();
     }
 
     public void incrementKafkaMessages() {
-        System.out.println("Kafka message metric incremented");
         kafkaMessagesCounter.increment();
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,6 +23,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 @RequiredArgsConstructor
 @Slf4j
 public class SecurityConfig {
@@ -37,6 +39,7 @@ public class SecurityConfig {
         log.info("Configuring security filter chain");
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> {})
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 )
@@ -48,47 +51,34 @@ public class SecurityConfig {
                                 "/api/v1/auth/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/error"
                         ).permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/v1/categories/**")
-                        .hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/categories/**")
-                        .hasRole("ADMIN")
+                        .requestMatchers("/actuator/health", "/actuator/info", "/actuator/prometheus")
+                        .permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/categories/**")
-                        .hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/categories/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/categories/**").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.POST, "/api/v1/products/**")
-                        .hasRole("ADMIN")
-
-                        .requestMatchers(HttpMethod.PUT, "/api/v1/products/**")
-                        .hasRole("ADMIN")
-
-                        .requestMatchers(HttpMethod.DELETE, "/api/v1/products/**")
-                        .hasRole("ADMIN")
-
-                        .requestMatchers("/actuator/**").permitAll()
-
+                        .requestMatchers(HttpMethod.POST, "/api/v1/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/v1/products/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/v1/products/admin/bulk-import").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/v1/products/admin/all").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/v1/products/**")
                         .hasAnyRole("ADMIN", "CUSTOMER")
 
-                        .requestMatchers("/api/v1/orders/**")
-                        .hasAnyRole("ADMIN", "CUSTOMER")
-
-                        .requestMatchers("/api/v1/payments/**")
-                        .hasAnyRole("ADMIN", "CUSTOMER")
-
-                        .requestMatchers("/api/v1/cart/**")
-                        .hasAnyRole("CUSTOMER", "ADMIN")
+                        .requestMatchers(HttpMethod.PATCH, "/api/v1/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/v1/orders/*/status").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/orders/**").hasAnyRole("ADMIN", "CUSTOMER")
+                        .requestMatchers("/api/v1/payments/**").hasAnyRole("ADMIN", "CUSTOMER")
+                        .requestMatchers("/api/v1/cart/**").hasAnyRole("CUSTOMER", "ADMIN")
 
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**")
                         .hasAnyRole("ADMIN", "CUSTOMER")
-                        .requestMatchers(
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html")
-                        .permitAll()
 
                         .anyRequest().authenticated()
                 )
