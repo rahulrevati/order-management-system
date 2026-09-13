@@ -23,11 +23,14 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+      properties:
+        max.block.ms: 3000
+        delivery.timeout.ms: 5000
+        request.timeout.ms: 2000
+
     consumer:
       group-id: ${KAFKA_CONSUMER_GROUP:ecommerce-group}
       auto-offset-reset: earliest
-      max-poll-records: 10
-
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
 

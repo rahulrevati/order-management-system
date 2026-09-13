@@ -22,6 +22,18 @@ public class KafkaConsumerConfig {
     @Value("${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}")
     private String bootstrapServers;
 
+    @Value("${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}")
+    private String securityProtocol;
+
+    @Value("${KAFKA_SASL_MECHANISM:PLAIN}")
+    private String saslMechanism;
+
+    @Value("${KAFKA_SASL_JAAS_CONFIG:}")
+    private String saslJaasConfig;
+
+    @Value("${KAFKA_SSL_TRUSTSTORE_LOCATION:}")
+    private String sslTruststoreLocation;
+
     @Bean
     public ConsumerFactory<String, OrderPlacedEvent> consumerFactory() {
 
@@ -36,27 +48,61 @@ public class KafkaConsumerConfig {
 
         props.put(
                 ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-                bootstrapServers);
+                bootstrapServers
+        );
 
         props.put(
                 ConsumerConfig.GROUP_ID_CONFIG,
-                "ecommerce-group");
+                "ecommerce-group"
+        );
 
         props.put(
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
-                "earliest");
+                "earliest"
+        );
+
+        props.put(
+                "security.protocol",
+                securityProtocol
+        );
+
+        props.put(
+                "sasl.mechanism",
+                saslMechanism
+        );
+
+        if (!saslJaasConfig.isBlank()) {
+            props.put(
+                    "sasl.jaas.config",
+                    saslJaasConfig
+            );
+        }
+
+        if (!sslTruststoreLocation.isBlank()) {
+            props.put(
+                    "ssl.truststore.type",
+                    "PEM"
+            );
+
+            props.put(
+                    "ssl.truststore.location",
+                    sslTruststoreLocation
+            );
+        }
 
         return new DefaultKafkaConsumerFactory<>(
                 props,
                 new StringDeserializer(),
-                deserializer);
+                deserializer
+        );
     }
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, OrderPlacedEvent>
     kafkaListenerContainerFactory() {
 
-        ConcurrentKafkaListenerContainerFactory<String, OrderPlacedEvent> factory =
+        ConcurrentKafkaListenerContainerFactory<String, OrderPlacedEvent>
+                factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
 
         factory.setConsumerFactory(consumerFactory());

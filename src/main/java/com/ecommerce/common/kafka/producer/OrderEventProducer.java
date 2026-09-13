@@ -24,7 +24,7 @@ public class OrderEventProducer {
 
         if (!kafkaEnabled) {
             log.info(
-                    "Kafka is disabled. Skipping OrderPlacedEvent publishing for order: {}",
+                    "Kafka disabled. Skipping OrderPlacedEvent for order {}",
                     event.getOrderNumber()
             );
             return;
@@ -35,34 +35,25 @@ public class OrderEventProducer {
                 event.getOrderNumber()
         );
 
-        try {
-            kafkaTemplate
-                    .send(KafkaTopics.ORDER_CREATED, event)
-                    .whenComplete((result, exception) -> {
+        kafkaTemplate
+                .send(KafkaTopics.ORDER_CREATED, event)
+                .whenComplete((result, exception) -> {
 
-                        if (exception != null) {
-                            log.warn(
-                                    "Failed to publish OrderPlacedEvent for order {}: {}",
-                                    event.getOrderNumber(),
-                                    exception.getMessage()
-                            );
-                            return;
-                        }
-
-                        businessMetrics.incrementKafkaMessages();
-
-                        log.info(
-                                "OrderPlacedEvent published successfully: {}",
-                                event.getOrderNumber()
+                    if (exception != null) {
+                        log.error(
+                                "Failed to publish OrderPlacedEvent for order {}: {}",
+                                event.getOrderNumber(),
+                                exception.getMessage()
                         );
-                    });
+                        return;
+                    }
 
-        } catch (Exception exception) {
-            log.warn(
-                    "Kafka publishing failed for order {}: {}",
-                    event.getOrderNumber(),
-                    exception.getMessage()
-            );
-        }
+                    businessMetrics.incrementKafkaMessages();
+
+                    log.info(
+                            "OrderPlacedEvent published successfully: {}",
+                            event.getOrderNumber()
+                    );
+                });
     }
 }
