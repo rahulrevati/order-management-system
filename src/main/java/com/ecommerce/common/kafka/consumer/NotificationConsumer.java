@@ -5,19 +5,25 @@ import com.ecommerce.common.kafka.event.OrderPlacedEvent;
 import com.ecommerce.email.EmailService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@ConditionalOnProperty(
+        name = "app.kafka.enabled",
+        havingValue = "true",
+        matchIfMissing = true
+)
 public class NotificationConsumer {
 
     private final EmailService emailService;
 
     @KafkaListener(
             topics = KafkaTopics.ORDER_CREATED,
-            groupId = "ecommerce-group",
+            groupId = "${KAFKA_CONSUMER_GROUP:ecommerce-group}",
             containerFactory = "kafkaListenerContainerFactory")
     public void consume(OrderPlacedEvent event) {
 
