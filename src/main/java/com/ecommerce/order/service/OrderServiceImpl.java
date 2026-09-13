@@ -8,7 +8,8 @@ import com.ecommerce.common.enums.OrderStatus;
 import com.ecommerce.common.enums.RoleName;
 import com.ecommerce.common.exception.*;
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
-import com.ecommerce.common.kafka.producer.OrderEventProducer;
+
+import com.ecommerce.email.EmailService;
 import com.ecommerce.monitoring.BusinessMetrics;
 import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.dto.UpdateOrderStatusRequest;
@@ -17,7 +18,6 @@ import com.ecommerce.order.entity.OrderItem;
 import com.ecommerce.order.mapper.OrderMapper;
 import com.ecommerce.order.repository.OrderRepository;
 import com.ecommerce.product.entity.Product;
-import com.ecommerce.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -36,10 +36,9 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
-    private final ProductRepository productRepository;
+    private final EmailService emailService;
     private final UserRepository userRepository;
     private final OrderMapper orderMapper;
-    private final OrderEventProducer orderEventProducer;
     private final BusinessMetrics businessMetrics;
 
     @Override
@@ -230,7 +229,7 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
         businessMetrics.incrementOrdersCreated();
 
-        // Publish Kafka Event
+        // Build order event for notifications
         OrderPlacedEvent event = OrderPlacedEvent.builder()
                 .orderId(savedOrder.getId())
                 .orderNumber(savedOrder.getOrderNumber())
@@ -239,7 +238,8 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(savedOrder.getTotalAmount())
                 .build();
 
-        orderEventProducer.publishOrderCreated(event);
+        // Send order confirmation asynchronously
+        emailService.sendOrderConfirmation(event);
 
         return savedOrder;
 

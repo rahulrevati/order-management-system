@@ -17,28 +17,47 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final BusinessMetrics businessMetrics;
 
-    @Async
     @Override
+    @Async
     public void sendOrderConfirmation(OrderPlacedEvent event) {
 
-        SimpleMailMessage message = new SimpleMailMessage();
+        try {
 
-        message.setTo(event.getEmail());
+            SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setSubject(
-                "Order Confirmation - " + event.getOrderNumber());
+            message.setTo(event.getEmail());
 
-        message.setText(
-                "Dear Customer,\n\n" +
-                        "Your order has been placed successfully.\n\n" +
-                        "Order Number : " + event.getOrderNumber() + "\n" +
-                        "Total Amount : ₹" + event.getTotalAmount() + "\n\n" +
-                        "Thank you for shopping with us!"
-        );
+            message.setSubject(
+                    "Order Confirmation - " + event.getOrderNumber()
+            );
 
-        mailSender.send(message);
-        businessMetrics.incrementEmailsSent();
+            message.setText(
+                    "Dear Customer,\n\n" +
+                            "Your order has been placed successfully.\n\n" +
+                            "Order Number : " + event.getOrderNumber() + "\n" +
+                            "Total Amount : ₹" + event.getTotalAmount() + "\n\n" +
+                            "Thank you for shopping with us!"
+            );
 
-        log.info("Email sent successfully to {}", event.getEmail());
+            mailSender.send(message);
+
+            businessMetrics.incrementEmailsSent();
+
+            log.info(
+                    "Order confirmation email sent successfully to {} for order {}",
+                    event.getEmail(),
+                    event.getOrderNumber()
+            );
+
+        } catch (Exception ex) {
+
+            log.error(
+                    "Failed to send order confirmation email to {} for order {}: {}",
+                    event.getEmail(),
+                    event.getOrderNumber(),
+                    ex.getMessage(),
+                    ex
+            );
+        }
     }
 }
