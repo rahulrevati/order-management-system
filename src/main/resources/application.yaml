@@ -111,3 +111,6 @@ app:
 
   kafka:
     enabled: ${APP_KAFKA_ENABLED:true}
+
+  mail:
+    from: ${MAIL_FROM:no-reply@example.com}

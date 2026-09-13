@@ -4,6 +4,7 @@ import com.ecommerce.common.kafka.event.OrderPlacedEvent;
 import com.ecommerce.monitoring.BusinessMetrics;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
@@ -17,14 +18,18 @@ public class EmailServiceImpl implements EmailService {
     private final JavaMailSender mailSender;
     private final BusinessMetrics businessMetrics;
 
-    @Override
+    @Value("${app.mail.from}")
+    private String mailFrom;
+
     @Async
+    @Override
     public void sendOrderConfirmation(OrderPlacedEvent event) {
 
         try {
 
             SimpleMailMessage message = new SimpleMailMessage();
 
+            message.setFrom(mailFrom);
             message.setTo(event.getEmail());
 
             message.setSubject(
