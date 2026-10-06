@@ -30,6 +30,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -153,7 +154,15 @@ public class OrderServiceImpl implements OrderService {
 
 
     private String generateOrderNumber() {
-        return "ORD-" + System.currentTimeMillis();
+        // The timestamp keeps numbers readable and roughly sortable; the random
+        // suffix keeps them unique when several orders arrive in the same
+        // millisecond (the timestamp alone collided under concurrent load).
+        return "ORD-" + System.currentTimeMillis() + "-" + randomSuffix();
+    }
+
+    private static String randomSuffix() {
+        return UUID.randomUUID().toString().replace("-", "")
+                .substring(0, 8).toUpperCase();
     }
 
     private List<CartItem> getCartItems(User user) {

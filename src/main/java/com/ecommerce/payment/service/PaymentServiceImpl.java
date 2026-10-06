@@ -85,7 +85,11 @@ public class PaymentServiceImpl implements PaymentService {
 
     private String generatePaymentId() {
 
-        return "PAY-" + System.currentTimeMillis();
+        // Random suffix: the timestamp alone collides when two payments are
+        // made in the same millisecond.
+        return "PAY-" + System.currentTimeMillis() + "-"
+                + UUID.randomUUID().toString().replace("-", "")
+                        .substring(0, 8).toUpperCase();
     }
 
     private String generateTransactionId() {
