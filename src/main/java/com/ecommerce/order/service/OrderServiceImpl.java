@@ -9,7 +9,6 @@ import com.ecommerce.common.enums.RoleName;
 import com.ecommerce.common.exception.*;
 import com.ecommerce.common.kafka.event.OrderPlacedEvent;
 
-import com.ecommerce.email.EmailService;
 import com.ecommerce.monitoring.BusinessMetrics;
 import com.ecommerce.order.dto.OrderResponse;
 import com.ecommerce.order.dto.UpdateOrderStatusRequest;
@@ -18,7 +17,9 @@ import com.ecommerce.order.entity.OrderItem;
 import com.ecommerce.order.mapper.OrderMapper;
 import com.ecommerce.order.repository.OrderRepository;
 import com.ecommerce.product.entity.Product;
+import com.ecommerce.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -36,10 +38,11 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
     private final CartRepository cartRepository;
-    private final EmailService emailService;
+    private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final OrderMapper orderMapper;
     private final BusinessMetrics businessMetrics;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public OrderResponse placeOrder() {
@@ -63,7 +66,7 @@ public class OrderServiceImpl implements OrderService {
             Long orderId,
             UpdateOrderStatusRequest request) {
 
-        Order order = getOrderByIds(orderId);
+        Order order = getOrderForUpdate(orderId);
 
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
@@ -81,6 +84,13 @@ public class OrderServiceImpl implements OrderService {
         validateStatusTransition(
                 order.getStatus(),
                 request.getStatus());
+
+        // Cancelling through the status endpoint must give the stock back,
+        // exactly like cancelOrder(). validateStatusTransition() only lets
+        // PENDING / CONFIRMED orders reach CANCELLED, so this runs at most once.
+        if (request.getStatus() == OrderStatus.CANCELLED) {
+            restoreStock(order);
+        }
 
         order.setStatus(request.getStatus());
 
@@ -102,7 +112,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public OrderResponse getOrderById(Long orderId) {
 
-        Order order = getOrderEntity(orderId);
+        Order order = getOrderEntity(orderId, false);
 
         return orderMapper.toResponse(order);
     }
@@ -111,7 +121,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
 
-        Order order = getOrderEntity(orderId);
+        Order order = getOrderEntity(orderId, true);
 
         validateOrderCancellation(order);
 
@@ -122,13 +132,13 @@ public class OrderServiceImpl implements OrderService {
         return orderMapper.toResponse(order);
     }
 
-    private Order getOrderEntity(Long orderId) {
+    private Order getOrderEntity(Long orderId, boolean lockForUpdate) {
 
         User user = getCurrentUser();
 
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Order not found"));
+        Order order = lockForUpdate
+                ? getOrderForUpdate(orderId)
+                : getOrderByIds(orderId);
 
         boolean isAdmin = user.getRole() != null
                 && user.getRole().getRoleName() == RoleName.ADMIN;
@@ -182,6 +192,13 @@ public class OrderServiceImpl implements OrderService {
                         new ResourceNotFoundException("Order not found"));
     }
 
+    private Order getOrderForUpdate(Long orderId) {
+
+        return orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Order not found"));
+    }
+
     private User getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -202,9 +219,27 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItem> orderItems = new ArrayList<>();
 
-        for (CartItem cartItem : cartItems) {
+        // Lock product rows in a fixed order (by id) so two orders containing
+        // the same products can never wait on each other in a cycle.
+        List<CartItem> sortedItems = cartItems.stream()
+                .sorted(Comparator.comparing(item -> item.getProduct().getId()))
+                .toList();
+
+        for (CartItem cartItem : sortedItems) {
 
             Product product = cartItem.getProduct();
+
+            // The earlier validateCart() gives friendly errors, but it is only
+            // a snapshot. This single UPDATE is the real guard: it checks and
+            // decrements stock atomically, so it cannot oversell.
+            int reserved = productRepository.decreaseStockIfAvailable(
+                    product.getId(), cartItem.getQuantity());
+
+            if (reserved == 0) {
+                throw new InsufficientStockException(
+                        "Insufficient stock for product : "
+                                + product.getName());
+            }
 
             OrderItem orderItem = new OrderItem();
 
@@ -217,10 +252,6 @@ public class OrderServiceImpl implements OrderService {
             orderItems.add(orderItem);
 
             totalAmount = totalAmount.add(cartItem.getTotalPrice());
-
-            product.setStockQuantity(
-                    product.getStockQuantity()
-                            - cartItem.getQuantity());
         }
 
         order.setOrderItems(orderItems);
@@ -238,8 +269,9 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(savedOrder.getTotalAmount())
                 .build();
 
-        // Send order confirmation asynchronously
-        emailService.sendOrderConfirmation(event);
+        // Handled by OrderNotificationListener only AFTER this transaction
+        // commits, so a rolled-back order never sends a confirmation.
+        eventPublisher.publishEvent(event);
 
         return savedOrder;
 
@@ -291,13 +323,15 @@ public class OrderServiceImpl implements OrderService {
 
     private void restoreStock(Order order) {
 
-        for (OrderItem orderItem : order.getOrderItems()) {
+        List<OrderItem> sortedItems = order.getOrderItems().stream()
+                .sorted(Comparator.comparing(item -> item.getProduct().getId()))
+                .toList();
 
-            Product product = orderItem.getProduct();
+        for (OrderItem orderItem : sortedItems) {
 
-            product.setStockQuantity(
-                    product.getStockQuantity() + orderItem.getQuantity()
-            );
+            productRepository.increaseStock(
+                    orderItem.getProduct().getId(),
+                    orderItem.getQuantity());
         }
     }
 }

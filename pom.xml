@@ -162,6 +162,13 @@
 			<scope>test</scope>
 		</dependency>
 
+		<!-- In-memory database so concurrency tests run with plain `mvn test` (no Docker) -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+
 	</dependencies>
 
 	<build>
