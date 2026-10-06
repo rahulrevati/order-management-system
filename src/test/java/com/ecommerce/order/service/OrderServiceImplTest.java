@@ -22,6 +22,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -65,6 +67,12 @@ class OrderServiceImplTest {
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private CacheManager cacheManager;
+
+    @Mock
+    private Cache productsCache;
 
     private Authentication authentication;
 
@@ -122,6 +130,7 @@ class OrderServiceImplTest {
         lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
         SecurityContextHolder.setContext(securityContext);
         lenient().when(authentication.getName()).thenReturn("test@example.com");
+        lenient().when(cacheManager.getCache("products")).thenReturn(productsCache);
         // updateOrderStatus is admin-only; tests run as an admin unless they say otherwise
         lenient().doReturn(List.of(new SimpleGrantedAuthority("ROLE_ADMIN")))
                 .when(authentication).getAuthorities();
@@ -142,6 +151,9 @@ class OrderServiceImplTest {
         verify(orderRepository).save(any(Order.class));
         verify(cartRepository).deleteByUser(any(User.class));
         verify(eventPublisher).publishEvent(any(OrderPlacedEvent.class));
+        // stock changed -> cached product 1 and the cached product list are stale
+        verify(productsCache).evict(1L);
+        verify(productsCache).evict("all");
     }
 
     @Test
@@ -156,6 +168,7 @@ class OrderServiceImplTest {
 
         verify(orderRepository, never()).save(any(Order.class));
         verify(eventPublisher, never()).publishEvent(any(OrderPlacedEvent.class));
+        verify(productsCache, never()).evict(any());
     }
 
     @Test
@@ -200,6 +213,7 @@ class OrderServiceImplTest {
         assertNotNull(response);
         assertEquals(OrderStatus.CONFIRMED, order.getStatus());
         verify(productRepository, never()).increaseStock(anyLong(), anyInt());
+        verify(productsCache, never()).evict(any());
     }
 
     @Test
@@ -212,6 +226,8 @@ class OrderServiceImplTest {
 
         assertEquals(OrderStatus.CANCELLED, order.getStatus());
         verify(productRepository).increaseStock(1L, 2);
+        verify(productsCache).evict(1L);
+        verify(productsCache).evict("all");
     }
 
     @Test
@@ -302,6 +318,8 @@ class OrderServiceImplTest {
         assertNotNull(response);
         assertEquals(OrderStatus.CANCELLED, order.getStatus());
         verify(productRepository).increaseStock(1L, 2);
+        verify(productsCache).evict(1L);
+        verify(productsCache).evict("all");
     }
 
     @Test

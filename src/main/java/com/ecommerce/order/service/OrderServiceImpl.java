@@ -19,21 +19,28 @@ import com.ecommerce.order.repository.OrderRepository;
 import com.ecommerce.product.entity.Product;
 import com.ecommerce.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class OrderServiceImpl implements OrderService {
 
@@ -44,6 +51,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderMapper orderMapper;
     private final BusinessMetrics businessMetrics;
     private final ApplicationEventPublisher eventPublisher;
+    private final CacheManager cacheManager;
 
     @Override
     public OrderResponse placeOrder() {
@@ -234,6 +242,8 @@ public class OrderServiceImpl implements OrderService {
                 .sorted(Comparator.comparing(item -> item.getProduct().getId()))
                 .toList();
 
+        List<Long> changedProductIds = new ArrayList<>();
+
         for (CartItem cartItem : sortedItems) {
 
             Product product = cartItem.getProduct();
@@ -250,6 +260,8 @@ public class OrderServiceImpl implements OrderService {
                                 + product.getName());
             }
 
+            changedProductIds.add(product.getId());
+
             OrderItem orderItem = new OrderItem();
 
             orderItem.setOrder(order);
@@ -262,6 +274,10 @@ public class OrderServiceImpl implements OrderService {
 
             totalAmount = totalAmount.add(cartItem.getTotalPrice());
         }
+
+        // Stock changed, so cached product responses (which include
+        // stockQuantity) are now stale.
+        evictProductCache(changedProductIds);
 
         order.setOrderItems(orderItems);
         order.setTotalAmount(totalAmount);
@@ -336,11 +352,57 @@ public class OrderServiceImpl implements OrderService {
                 .sorted(Comparator.comparing(item -> item.getProduct().getId()))
                 .toList();
 
+        List<Long> changedProductIds = new ArrayList<>();
+
         for (OrderItem orderItem : sortedItems) {
 
             productRepository.increaseStock(
                     orderItem.getProduct().getId(),
                     orderItem.getQuantity());
+
+            changedProductIds.add(orderItem.getProduct().getId());
+        }
+
+        evictProductCache(changedProductIds);
+    }
+
+    /**
+     * Drops the cached product responses for products whose stock just changed,
+     * plus the cached "all products" list.
+     *
+     * When a transaction is running the eviction waits until it has committed.
+     * Evicting earlier would let a concurrent reader re-fill the cache with
+     * the old stock before the new stock is visible, and the stale value
+     * would then stay cached. A rolled-back order never evicts.
+     */
+    private void evictProductCache(Collection<Long> productIds) {
+
+        Runnable eviction = () -> {
+            try {
+                Cache cache = cacheManager.getCache("products");
+                if (cache == null) {
+                    return;
+                }
+                productIds.forEach(cache::evict);
+                cache.evict("all");
+            } catch (RuntimeException ex) {
+                // The order itself is already safe; a cache problem (for
+                // example Redis being down) must not fail the request.
+                log.warn("Could not evict product cache after stock change: {}",
+                        ex.getMessage());
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            eviction.run();
+                        }
+                    });
+        } else {
+            eviction.run();
         }
     }
 }
