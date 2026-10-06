@@ -1,5 +1,7 @@
 package com.ecommerce.payment.service;
 
+import com.ecommerce.auth.entity.User;
+import com.ecommerce.auth.repository.UserRepository;
 import com.ecommerce.common.enums.OrderStatus;
 import com.ecommerce.common.enums.PaymentMethod;
 import com.ecommerce.common.enums.PaymentStatus;
@@ -11,12 +13,17 @@ import com.ecommerce.payment.dto.PaymentResponse;
 import com.ecommerce.payment.entity.Payment;
 import com.ecommerce.payment.mapper.PaymentMapper;
 import com.ecommerce.payment.repository.PaymentRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -38,16 +45,34 @@ class PaymentServiceImplTest {
     @Mock
     private PaymentMapper paymentMapper;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private PaymentServiceImpl paymentService;
 
+    private User user;
     private Order order;
     private Payment payment;
     private CreatePaymentRequest createPaymentRequest;
 
     @BeforeEach
     void setUp() {
+        // The service authorises every call against the logged-in user, so the
+        // tests must provide one (the logged-in customer owns the order).
+        user = new User();
+        user.setId(1L);
+        user.setEmail("test@example.com");
+
+        Authentication authentication = mock(Authentication.class);
+        SecurityContext securityContext = mock(SecurityContext.class);
+        lenient().when(securityContext.getAuthentication()).thenReturn(authentication);
+        lenient().when(authentication.getName()).thenReturn("test@example.com");
+        SecurityContextHolder.setContext(securityContext);
+        lenient().when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+
         order = new Order();
+        order.setUser(user);
         order.setId(1L);
         order.setOrderNumber("ORD-123456789");
         order.setStatus(OrderStatus.PENDING);
@@ -67,6 +92,11 @@ class PaymentServiceImplTest {
         createPaymentRequest.setPaymentMethod(PaymentMethod.CARD);
     }
 
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void makePayment_Success() {
         when(orderRepository.findById(anyLong())).thenReturn(Optional.of(order));
@@ -79,6 +109,29 @@ class PaymentServiceImplTest {
         assertNotNull(response);
         assertEquals(OrderStatus.CONFIRMED, order.getStatus());
         verify(paymentRepository).save(any(Payment.class));
+    }
+
+    @Test
+    void makePayment_OtherCustomersOrder_AccessDenied() {
+        User otherUser = new User();
+        otherUser.setId(2L);
+        order.setUser(otherUser);
+        when(orderRepository.findById(anyLong())).thenReturn(Optional.of(order));
+
+        assertThrows(AccessDeniedException.class, () -> paymentService.makePayment(createPaymentRequest));
+
+        verify(paymentRepository, never()).save(any(Payment.class));
+        assertEquals(OrderStatus.PENDING, order.getStatus());
+    }
+
+    @Test
+    void makePayment_CancelledOrder_Rejected() {
+        order.setStatus(OrderStatus.CANCELLED);
+        when(orderRepository.findById(anyLong())).thenReturn(Optional.of(order));
+
+        assertThrows(IllegalStateException.class, () -> paymentService.makePayment(createPaymentRequest));
+
+        verify(paymentRepository, never()).save(any(Payment.class));
     }
 
     @Test
